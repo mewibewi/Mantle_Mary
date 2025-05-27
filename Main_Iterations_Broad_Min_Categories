@@ -1,0 +1,402 @@
+import numpy as np
+import pandas as pd
+import math
+import os
+import subprocess
+from pathlib import Path
+from tqdm import trange
+import time
+start_time = time.time()
+
+################################## INPUTS ####################################
+all_file_paths = []
+unique = '_Hyd'  #Add a unique string to the end of the output files
+
+# Hydrate compositions if you want
+Hydration = [0,5]
+
+num = 11
+
+for HYD in range(len(Hydration)):
+                # 1 Sp (McD) - Grt (McD) 
+    Comp_Boxes = [
+                [{'SI': 37.48, 'MG': 53.47, 'FE': 5.88, 'AL': 0.98, 'K': 0, 'CA': 1.89, 'NA':0.15, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0},    
+                {'SI': 38.43, 'MG': 54.25, 'FE': 5.64, 'AL': 0.70,  'K': 0, 'CA': 0.75, 'NA': 0.09, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0}],
+                # 2 LHZ (Hend) - LHZ (BM)    
+                [{'SI': 41.80, 'MG': 41.58, 'FE': 7.51, 'AL': 2.38, 'K': 0, 'CA': 5.6, 'NA':0.52, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0},    
+                {'SI': 37.59, 'MG': 50.52, 'FE': 5.13, 'AL': 3.57,  'K': 0, 'CA': 2.7, 'NA': 0.49, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0}],
+                # 3 Perid (Hend) - Perid (BM) 
+                [{'SI': 40.21, 'MG': 44.31, 'FE': 6.53, 'AL': 2.37, 'K': 0, 'CA': 5.15, 'NA':0.45, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0},    
+                {'SI': 37.01, 'MG': 54.92, 'FE': 5.83, 'AL': 0.78,  'K': 0, 'CA': 1.26, 'NA': 0.12, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0}],
+                # 4 Prtv (McD) - Mantle (Tain) 
+                [{'SI': 39.17, 'MG': 48.48, 'FE': 6.14, 'AL': 2.29, 'K': 0, 'CA': 3.37, 'NA':0.29, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0},    
+                {'SI': 39.40, 'MG': 48.63, 'FE': 5.89, 'AL': 4.59,  'K': 0, 'CA': 3.33, 'NA': 0.61, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0}],
+                # 5 HZB (Hend) - UM (BM) 
+                [{'SI': 39.12, 'MG': 48.46, 'FE': 7.32, 'AL': 1.36, 'K': 0, 'CA': 3.04, 'NA':0.29, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0},    
+                {'SI': 40.67, 'MG': 46.59, 'FE': 5.67, 'AL': 2.46,  'K': 0, 'CA': 4.11, 'NA': 0.68, 'O': '?', 'H': Hydration[HYD], 'TI': 0, 'MN': 0}]
+                    ]
+  
+
+    OUT_names = ['1 Sp (McD) - Grt (McD)'+unique+str(Hydration[HYD]),
+                '2 LHZ (Hend) - LHZ (BM)'+unique+str(Hydration[HYD]),
+                '3 Perid (Hend) - Perid (BM)'+unique+str(Hydration[HYD]),
+                '4 Prtv (McD) - Mantle (Tain)'+unique+str(Hydration[HYD]),
+                '5 HZB (Hend) - UM (BM)'+unique+str(Hydration[HYD]),
+                ]
+
+    for count in range(len(Comp_Boxes)):
+
+        elements_start = Comp_Boxes[count][0]
+        elements_end = Comp_Boxes[count][1]
+
+        # if you modify the composition, take care that the elements are also included here:
+        si = np.linspace(elements_start['SI'], elements_end['SI'], num); si = np.round(si, 2) 
+        mg = np.linspace(elements_start['MG'], elements_end['MG'], num); mg = np.round(mg, 2)
+        fe = np.linspace(elements_start['FE'], elements_end['FE'], num); fe = np.round(fe, 2)
+        al = np.linspace(elements_start['AL'], elements_end['AL'], num); al = np.round(al, 2)
+        ca = np.linspace(elements_start['CA'], elements_end['CA'], num); ca = np.round(ca, 2)
+        k =  np.linspace(elements_start['K'], elements_end['K'], num); k = np.round(k, 2)
+        na =  np.linspace(elements_start['NA'], elements_end['NA'], num); na = np.round(na, 2)
+        h = np.linspace(elements_start['H'], elements_end['H'], num); h = np.round(h, 2)
+        ti = np.linspace(elements_start['TI'], elements_end['TI'], num); ti = np.round(ti, 2)
+        mn = np.linspace(elements_start['MN'], elements_end['MN'], num); mn = np.round(mn, 2)
+
+        # make a list with the compositions as dictionary, adjust the elements, if necessary:
+        cmps = list()
+        for index in range(num):
+            cmps.append({'SI':si[index], 'AL':al[index], 'MG':mg[index], 'FE':fe[index], 'CA':ca[index], 'K':k[index], 'NA':na[index], 'O': '?', 'H':h[index], 'TI':ti[index]})
+  
+
+        # Set P-T Conditions
+        Press = [10000, 40000, 10000]; P = list(range(Press[0], Press[1]+Press[2], Press[2])) # 4 times
+        Temp = [900, 1800, 450]; T = list(range(Temp[0], Temp[1]+Temp[2], Temp[2])) # 3 times -> 6*4*3 = 72 times
+
+        P = np.linspace(10000, 40000, num).tolist()
+        T = np.linspace(900, 1800, num).tolist()
+
+        # Input the line where Pressure and temperature start in THERIN
+        P_T_line = 42
+
+        # Set Therin file-path
+        THERIN_path = r'.\THERIN'
+
+        # Set OUT-path
+        OUT_path = r".\OUT"
+
+        # Set the desired outputs to True
+        Pressure = True
+        Temperature = True
+        X = True
+        Base_composition = False
+        All_composition = False
+        Density = True
+        Phases = True
+
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        theriak_path = r"YOUR PATH\theriak.exe"
+
+        ################################## CALCULATIONS ####################################
+
+
+        with open(THERIN_path, 'r') as file:
+            THIN_lines = file.readlines()
+
+
+        # Store the original Pressure, Temperature and composition - This is fed back to THERIN.txt at the end to reset it
+
+        og_PT_line = THIN_lines[P_T_line-1]
+        og_comp_line = THIN_lines[P_T_line]
+
+
+        # Initiate output list
+        OUT = []
+        OUT_NoPhases = []
+
+        # Initiate mineral list
+        All_mins = []
+        All_comps = []
+        k = 0
+
+        # Loop through incremental values and adapt the composition
+
+        for compindex in range(num):
+
+            k += 1
+          
+            compstring = '0   '
+            og_compstring = ''
+            for element, comp in cmps[compindex].items():
+                compstring = compstring + element + '(' + str(comp) + ')'
+                og_compstring = og_compstring + element + '(' + str(comp) + ')'
+            All_comps = All_comps + [og_compstring]
+            compstring = compstring + '     * generated by meary'
+
+            # For every unique composition, loop through every Pressure and Temperature
+
+            for p in P:
+                for t in T:
+
+                    # Editing THERIN.txt: replace relevant lines with P  T and Start_comp string
+                    
+                    new_P_T = '    '+str(t)+'     '+str(p)
+                    THIN_lines[P_T_line-1] = new_P_T+ '\n'
+                    THIN_lines[P_T_line] = compstring+ '\n' 
+                    
+                    
+                    with open(THERIN_path, 'w') as file:
+                        file.writelines(THIN_lines)
+                    
+                    try:
+                        subprocess.run([theriak_path, "commands.txt"], check=True, cwd=script_dir)
+                        print("Command executed successfully.")
+                    except subprocess.CalledProcessError as e:
+                        print("Theriak returned an error:", e)
+                    except FileNotFoundError:
+                        print("The 'theriak' executable was not found. Make sure it's in your system PATH.")
+                            
+                    # Set/Reset the important strings in the OUT file
+
+                    OUT_vd = 'volumes and densities of stable phases:'
+                    stable_phases = 'stable phases:'
+                    OUT_sp = 'solid phases'
+                    OUT_phase = 'phase'
+                    OUT_fluids = 'gases and fluids'
+                    subphases = []
+
+
+                    # Open OUT file and search through its lines to find the above defined important strings
+
+                    with open(OUT_path, 'r') as file:
+                        OUT_lines = file.readlines()
+                        for row in OUT_lines:
+                            # Check for the desired strings:
+                            
+                            if type(stable_phases) == str:
+                                if row.find(stable_phases) != -1: # Chekcs for the string 'stable phases:' in the section below 'equilibrium assemblages' and 'volumes and densities...'
+                                    stable_phases = OUT_lines.index(row)
+
+                            elif type(OUT_phase) == str:
+                                if row.find(OUT_phase) != -1: # Checks for the string 'phase' 
+                                    OUT_phase = OUT_lines.index(row) # Changes the variable encoding the string to the index of the row
+
+                            elif type(OUT_vd) == str:
+                                if row.find(OUT_vd) != -1: # Checks for the string 'volumes and densities of stable phases:' 
+                                    OUT_vd = OUT_lines.index(row) # Changes the variable encoding the string to the index of the row
+
+                            elif type(OUT_sp) == str:
+                                if row.find(OUT_sp) != -1: # Checks for the string 'solid phases' 
+                                    OUT_sp = OUT_lines.index(row) # Changes the variable encoding the string to the index of the row
+
+                            elif type(OUT_fluids) == str:
+                                if row.find(OUT_fluids) != -1:
+                                    OUT_fluids = OUT_lines.index(row)
+
+                        eq_phases = []
+                        temp_phase = []
+                        temp_subphases = []
+
+                        if type(OUT_phase) != str:
+                            i = OUT_phase+2
+                            while i < OUT_vd-1:
+                                line = OUT_lines[i].split()
+                                if len(line) > 0:
+                                    if line[0].isdigit():
+                                        temp_phase.append(line[2])
+                                        if len(line)>5:
+                                            if line[6] == '**':
+                                                temp_subphases.append([line[5], line[7]])
+                                            else:
+                                                temp_subphases.append([line[5], line[6]])
+                                        j = i +1
+                                        while j < OUT_vd-1 and OUT_lines[j].split() != []:
+                                            lower_line = OUT_lines[j].split()
+                                            if (len(lower_line) > 0) and (lower_line[0] == 'Mg/(Fe+Mg)' or  lower_line[0] == 'lnKD(ord)' or lower_line[0] == '**'):
+                                                break
+                                            if lower_line == []:
+                                                break
+                                            if lower_line != [] and len(lower_line) > 3:
+                                                if lower_line[1] == '**':
+                                                    temp_subphases.append([lower_line[0], lower_line[2]])
+                                                else:
+                                                    temp_subphases.append([lower_line[0], lower_line[1]])
+                                            j += 1
+                                        i = j
+                                        eq_phases.append([temp_phase[0], temp_subphases])
+                                        temp_phase, temp_subphases = [], []
+                                    else:
+                                        i += 1
+                                else:
+                                    i += 1
+                      
+                        # Change stable_phases from an index to a list where data about each stable phase can be put
+                        stable_phases = OUT_lines[stable_phases].split()[2] # Change the variable from the row index to containing the actual number of stable phases
+                        stable_phases = np.zeros(int(stable_phases)).tolist() # Change the actual number of Stable phases to a list with as many zeros as there are stable phases
+                        stable_subphases = []
+                        dens_line = OUT_sp + 3 + len(stable_phases)
+                        
+                        # Loop through the list stable_phases and record its name, volume percent, weight percent and density
+                        
+                        fluids = False
+                        for n in range(len(stable_phases)): # For the number of stable phases, do:
+                            if (OUT_lines[OUT_sp+ 2 + n].split()[0] != '----------') and (fluids == False):
+                                name = OUT_lines[OUT_sp + 2 + n].split()[0] # Record the name of the stable phase
+                                name = name.split('_')[0]
+                                vol_perc = OUT_lines[OUT_sp + 2 + n].split()[4] # Record the volume% of the stable phase
+                                wt_perc = OUT_lines[OUT_sp + 2 + n].split()[8] # Record the weight% of the stable phase
+                                dens = OUT_lines[OUT_sp + 2 + n].split()[10] # Record the density of the stable phase
+                                
+
+                                SUB1 = False
+                                # Uncomment these to show subphases
+                                # for e in range(len(eq_phases)):
+                                #     if name == eq_phases[e][0]:
+                                #         for s in range(len(eq_phases[e][1])):
+                                #             name = eq_phases[e][1][s][0]
+                                #             x = float(eq_phases[e][1][s][1])
+                                #             vol_perc_x = float(vol_perc) * x; vol_perc_x = round(vol_perc_x,5)
+                                #             wt_perc_x = float(wt_perc) * x; wt_perc_x = round(wt_perc_x,5) 
+                                #             dens = dens
+                                #             dens = float(dens)*float(wt_perc)/100
+
+                                #             SUB1 = True  
+                                #             stable_subphases.append([name, float(vol_perc_x),float(wt_perc_x), float(dens)])
+                                #             stable_phases[n] = [name, float(vol_perc_x), float(wt_perc_x), float(dens)] # Record the above mentioned data in a list of lists
+                                #             All_mins.append(name)
+                                
+                                if SUB1 == False:
+                                    stable_subphases.append([name, float(vol_perc),float(wt_perc), float(dens)])
+                                    stable_phases[n] = [name, float(vol_perc), float(wt_perc), float(dens)] # Record the above mentioned data in a list of lists
+                                    All_mins.append(name)
+
+                            elif (OUT_lines[OUT_sp + 2 + n].split()[0] == '----------') or (fluids == True):
+                                if fluids == False:
+                                    dens_line = OUT_sp + 3 + n
+                                
+                                fluids = True 
+                                
+                                name = OUT_lines[OUT_sp + 2 + 6 + n].split()[0] # Record the name of the stable phase
+                                name = name.split('_')[0]
+                                vol_perc = OUT_lines[OUT_sp + 2 + 6 + n].split()[2] # THIS IS VOLUME PER MOLE, take 3 if you want VOLUME
+                                wt_perc = OUT_lines[OUT_sp + 2 + 6 + n].split()[4] # THIS IS WEIGHT PER MOLE, take 5 if you want WEIGHT
+                                dens = OUT_lines[OUT_sp + 2 + 6 + n].split()[6] # DENSITY.. use this in place of the others!
+                                # dens = float(dens)*float(wt_perc)/100
+
+                                SUB2 = False
+                                # Uncomment these to show subphases
+                                # for e in range(len(eq_phases)):
+                                #     if name == eq_phases[e][0]:
+                                #         for s in range(len(eq_phases[e][1])):
+                                #             name = eq_phases[e][1][s][0]
+                                #             x = float(eq_phases[e][1][s][1])
+                                #             vol_perc_x = float(vol_perc) * x; vol_perc_x = round(vol_perc,5) 
+                                #             wt_perc_x = float(wt_perc) * x; wt_perc_x = round(wt_perc,5)
+                                #             dens = dens
+                                #             dens = float(dens)*float(wt_perc)/100
+
+                                #             SUB2 = True
+                                #             stable_subphases.append([name, dens, dens, dens])    
+                                #             stable_phases[n] = [name, dens, dens, dens]
+                                #             All_mins.append(name)
+
+                                if SUB2 == False:
+                                    stable_subphases.append([name, dens, dens, dens])    
+                                    stable_phases[n] = [name, dens, dens, dens]
+                                    All_mins.append(name)
+
+                        bulk_dens = OUT_lines[dens_line].split()[9]
+                        
+                        
+                        # Record Pressure, Temperature, Composition, Bulk Density and lists of stable_phase data in a temporary OUT-list
+                        temp_OUT = [p, t, k, og_compstring, float(bulk_dens)] + [stable_subphases] # Add the list with the data for each stable phase to a list containing the current P, T, composition and bulk density
+                        temp_OUT_NoPhases = [p, t, k, og_compstring, float(bulk_dens)]
+                        
+                        # Append the temporary OUT-list to the OUT list
+                        
+                        OUT.append(temp_OUT)
+                        OUT_NoPhases.append(temp_OUT_NoPhases)
+
+
+        # Initiate Output file path
+        OUT_str_parts = []
+        for el in elements_start:
+            start_val = elements_start[el]
+            end_val = elements_end[el]
+
+            if start_val == '?' or end_val == '?':
+                continue
+
+            OUT_str_parts.append(f"{el}({start_val}-{end_val})")
+        OUT_str = ''.join(OUT_str_parts)
+
+        # Reset THERIN P T and composition lines to what they were originally
+
+        THIN_lines[P_T_line-1] = og_PT_line
+        THIN_lines[P_T_line] = og_comp_line
+
+
+        # Initiate Output-formatiing list
+        
+        All_phases = []
+        for m in All_mins:
+            if m not in All_phases:
+                All_phases.append(m)
+
+        Out_list = [Pressure, Temperature, X, All_composition, Density, Phases]
+        Out_list_str = ['Pressure (bar)', 'Temperature (C)', OUT_str, 'All_composition', 'Density(g/cm^3)'] + All_phases # Maybe have to add strings of mienrals here
+        Out_list_str_Ph = ['Pressure', 'Temperature', 'X', 'All_composition', 'Density','Phases']
+        
+
+        if Phases == True:
+            for row in range(len(OUT)):   # ROW INDEX
+                for col in range(len(Out_list)):  # COL INDEX
+                    if Out_list_str_Ph[col] == 'Phases':
+                        phase_diff = len(All_phases) - len(OUT[row][col])
+                        for diff in range(phase_diff):
+                            OUT[row][col] = OUT[row][col] + ['0']
+
+                        # for phase in range(len(OUT[row][col])): # Iterate through number of phases
+                        for phase in All_phases:
+                            found = False
+                            for item in OUT[row][col]:
+                                if isinstance(item, list) and item[0] == phase:
+                                    OUT_NoPhases[row].append(item[2])
+                                    found = True
+                                    break
+                            if not found:
+                                OUT_NoPhases[row].append(0)
+        
+        OUT_str = OUT_names[count]
+        file_path = OUT_str +'.txt'
+        all_file_paths.append(file_path)
+        with open(file_path, 'w') as file:
+            for o in range(len(Out_list)-1):
+                if Out_list[o] == True:
+                    file.write(Out_list_str[o]+',')
+            if Phases == True:
+                for phase in range(len(All_phases)):
+                    file.write(Out_list_str[len(Out_list)+phase-1]+'(wt%),')
+
+            file.write('\n')
+
+            
+            for o in range(len(OUT_NoPhases)):   # Iterate through each row'
+                out = ''
+                for O in range(len(Out_list)-1):  # Iterate through the possible parameters
+                    if Out_list[O] == True:
+                        out = out + str(OUT_NoPhases[o][O]) + ','
+                    
+                if Phases == True:
+                    for p in range(len(All_phases)):
+                        out = out + str(OUT_NoPhases[o][len(Out_list)-1+p])+','
+
+                file.write(out + '\n')
+Comp_library = 'Comp_library' + unique + '.txt'
+with open(Comp_library, 'w') as file:
+    for i in range(len(all_file_paths)): file.write('.\\' + str(all_file_paths[i]) + '\n')
+
+rundown = (time.time() - start_time)
+HOURS = rundown//3600; HOURS_REST = rundown%3600
+MINUTES = HOURS_REST//60; MINUTES_REST = HOURS_REST%60
+SECONDS = MINUTES_REST
+print('This run took', HOURS, 'Hours,', MINUTES, 'Minutes and', SECONDS, 'Seconds')
